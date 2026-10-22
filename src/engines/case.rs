@@ -127,11 +127,14 @@ pub async fn intake(
             }
         }
         Err(err) => {
-            let _ = app.db.delete_case(&case_id);
-            Err(crate::error::AppError::unavailable(format!(
-                "connector_not_real: the case was not stored because Connector did not register the agents. {}",
+            let _ = app.db.add_message(&case_id, customer_id, "customer", summary);
+            let _ = app.db.set_status(&case_id, "recorded");
+            let mut record = detail(app, &case_id)?;
+            record["honesty"] = json!(format!(
+                "The report is kept. Connector has not registered agents for it yet. {}",
                 err.message
-            )))
+            ));
+            Ok(record)
         }
     }
 }

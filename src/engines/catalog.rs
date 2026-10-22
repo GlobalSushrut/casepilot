@@ -214,41 +214,103 @@ async fn existing_catalog_agent(app: &App) -> AppResult<Option<String>> {
     }))
 }
 
-/// A person wrote before choosing a type. A report agent answers.
-/// The desk catalog agent is not used: its authority was revoked and it cannot talk.
-/// This does not open a case and does not invent a type.
-pub async fn answer_before_type(app: &App, message: &str) -> AppResult<Value> {
+/// A person wrote before choosing a type. The report is stored first.
+/// A type is not invented. The desk catalog agent is not used: its authority was revoked.
+pub async fn answer_before_type(
+    app: &App,
+    customer_id: &str,
+    message: &str,
+    subject_ref: &str,
+) -> AppResult<Value> {
     let message = message.trim();
-    if message.is_empty() {
-        return Err(AppError::bad("a message is required"));
+    let customer_id = customer_id.trim();
+    let subject_ref = subject_ref.trim();
+    if message.is_empty() || customer_id.is_empty() {
+        return Err(AppError::bad("a name and a message are required"));
     }
+    let case_id = app.db.create_case(customer_id, message, "unspecified")?;
+    let owner = crate::accounts::current().unwrap_or_default();
+    let matter_key = format!(
+        "{}_{}_{}_{}",
+        slug(&owner),
+        slug(customer_id),
+        "unspecified",
+        slug(subject_ref)
+    );
+    app.db.stamp_matter(&case_id, &matter_key, subject_ref)?;
+    app.db.add_message(&case_id, customer_id, "customer", message)?;
     let knowledge = knowledge_text(app)?;
     let prompt = format!(
-        "{knowledge}\n\nThe person wrote this and has not chosen a case type: {message}. Answer as the person at this desk. Apologize briefly. Say the team is looking at it. Repeat their words. Ask them to choose one of the stored types. If the knowledge names a time, say that time. If it does not, say the stored knowledge does not set a time. Do not invent a type, a deadline, or a remedy."
+        "{knowledge}\n\nThe person filed this report and has not chosen a case type: {message}. The report is already stored. Answer as the person at this desk. Apologize briefly. Say the team is looking at it and the report is kept. Repeat their words. Do not invent a case type, a deadline, or a remedy. Do not talk about missing knowledge."
     );
-    let mut pid = ensure_greeter(app).await?;
-    let reply = match consult_desk(app, &pid, &prompt).await {
-        Ok(reply) => reply,
-        Err(err) if err.message.contains("authority_revoked") => {
-            app.db.set_setting(&key("greeting_agent_pid"), "")?;
-            app.db.set_setting(&key("desk_agent_session"), "")?;
-            pid = ensure_greeter(app).await?;
-            consult_desk(app, &pid, &prompt).await?
+    let answered = async {
+        let mut pid = ensure_greeter(app).await?;
+        match consult_desk(app, &pid, &prompt).await {
+            Ok(reply) => Ok((pid, reply)),
+            Err(err) if err.message.contains("authority_revoked") => {
+                app.db.set_setting(&key("greeting_agent_pid"), "")?;
+                app.db.set_setting(&key("desk_agent_session"), "")?;
+                pid = ensure_greeter(app).await?;
+                let reply = consult_desk(app, &pid, &prompt).await?;
+                Ok((pid, reply))
+            }
+            Err(err) => Err(err),
         }
-        Err(err) => return Err(err),
+    }
+    .await;
+    let (pid, reply) = match answered {
+        Ok(pair) => pair,
+        Err(err) => {
+            let _ = app.db.set_status(&case_id, "recorded");
+            return Ok(json!({
+                "text": "The report is kept. The team is looking at it.",
+                "case": { "case_id": case_id },
+                "honesty": err.message,
+            }));
+        }
     };
     let text = reply["text"].as_str().unwrap_or("").trim().to_string();
     if text.is_empty() {
-        return Err(AppError::unavailable(
-            "connector_talk_empty: the desk agent did not answer, so none was stored",
-        ));
+        let _ = app.db.set_status(&case_id, "recorded");
+        return Ok(json!({
+            "text": "The report is kept. The team is looking at it. A reply was not written yet.",
+            "agent_pid": pid,
+            "case": { "case_id": case_id },
+            "honesty": "The report is stored. The desk agent did not write a reply.",
+        }));
     }
+    app.db.add_message(&case_id, customer_id, "customer_agent", &text)?;
+    let _ = app.db.set_status(&case_id, "recorded");
+    let coordination = match crate::engines::coordination::bind(app, &case_id, 1).await {
+        Ok(binding) => json!({ "ok": true, "binding": binding }),
+        Err(err) => json!({ "ok": false, "error": err.message }),
+    };
     Ok(json!({
         "text": text,
         "agent_pid": pid,
-        "case": null,
-        "honesty": "No case was opened. A typed line does not invent a case type.",
+        "case": { "case_id": case_id },
+        "coordination": coordination,
+        "honesty": "The report is stored. No case type was invented.",
     }))
+}
+
+fn slug(value: &str) -> String {
+    let cleaned: String = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed = cleaned.trim_matches('_');
+    if trimmed.is_empty() {
+        "none".into()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 async fn ensure_greeter(app: &App) -> AppResult<String> {

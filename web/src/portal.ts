@@ -88,11 +88,7 @@ async function open() {
     composer!.hidden = true;
     return;
   }
-  if (!catalog.knowledge_stored || catalog.types.length === 0) {
-    thread!.innerHTML = `<p class="note">No case types are stored in Connector knowledge yet. Review has to save them before this chat can offer any.</p>`;
-    return;
-  }
-  types = catalog.types;
+  types = catalog.knowledge_stored ? catalog.types : [];
   const groups = [...new Set(types.map((item) => item.group))];
   group = groups[0] || "";
   tabs!.innerHTML = groups.map((name) => `<button type="button" data-group="${name}">${labelGroup(name)}</button>`).join("");
@@ -183,8 +179,19 @@ composer?.addEventListener("submit", async (event) => {
     if (chatTitle) chatTitle.textContent = "Before a case type";
     thread!.innerHTML = hint("The agent is reading this.");
     try {
-      const body = await postJson<{ text: string }>("/api/casepilot/catalog/ask", { message });
-      thread!.innerHTML = bubble("customer", message) + bubble("customer_agent", body.text) + hint("Choose a case type to open the report. The typed line stays in the box.");
+      const body = await postJson<{ text: string; case?: { case_id: string } }>("/api/casepilot/catalog/ask", {
+        message,
+        subject_ref: subject,
+      });
+      composer!.reset();
+      if (body.case?.case_id) {
+        activeCase = body.case.case_id;
+        chosen = null;
+        await loadShelf();
+        await showCase(activeCase);
+        return;
+      }
+      thread!.innerHTML = bubble("customer", message) + bubble("customer_agent", body.text);
       stick();
     } catch (error) {
       thread!.innerHTML = hint(error instanceof Error ? error.message : "The agent did not answer.");

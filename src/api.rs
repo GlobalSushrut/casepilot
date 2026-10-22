@@ -224,6 +224,7 @@ async fn setup_status(State(app): State<App>) -> Json<Value> {
 #[derive(Deserialize)]
 struct AskBody {
     message: String,
+    subject_ref: Option<String>,
 }
 
 async fn catalog_ask(
@@ -231,9 +232,17 @@ async fn catalog_ask(
     headers: HeaderMap,
     Json(body): Json<AskBody>,
 ) -> AppResult<Json<Value>> {
-    require(&headers, "customer")?;
+    let session = require(&headers, "customer")?;
     setup::require_ready(&app).await?;
-    Ok(Json(engines::catalog::answer_before_type(&app, &body.message).await?))
+    Ok(Json(
+        engines::catalog::answer_before_type(
+            &app,
+            &session.customer_id,
+            &body.message,
+            body.subject_ref.as_deref().unwrap_or(""),
+        )
+        .await?,
+    ))
 }
 
 async fn catalog_chips(State(app): State<App>) -> AppResult<Json<Value>> {
