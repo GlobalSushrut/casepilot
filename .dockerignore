@@ -1,0 +1,6 @@
+target
+data
+node_modules
+.git
+*.db
+deploy/bundle

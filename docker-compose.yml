@@ -1,0 +1,66 @@
+# Case room. Connector OS is the published package, installed inside the
+# container the same way as platform/deploy/Dockerfile.cloud.
+# SurrealDB holds the custody graph. An effect row is rejected unless its
+# verdict is proceed.
+
+services:
+  surreal:
+    image: surrealdb/surrealdb:v2.2.1
+    user: "0:0"
+    command: start --log info --user root --pass root rocksdb:/data/custody.db
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - surreal:/data
+
+  connector:
+    image: connector-os:prebuilt
+    build:
+      context: .
+      dockerfile: deploy/connector.Dockerfile
+    environment:
+      # The local preset enables open auth and then refuses 0.0.0.0.
+      # Docker must listen on the container address so CasePilot can reach it.
+      CONNECTOR_ALLOW_OPEN_AUTH_NONLOCAL: "1"
+      CONNECTOR_ENV: development
+      CONNECTOR_DEV_MODE: "1"
+      CONNECTOR_API_KEY: dev-token
+      # This node already holds the guide demo and one agent whose contract
+      # cannot be changed. A live case needs the desk catalog plus a customer
+      # and a worker, so the dev cap has to cover those.
+      # The installed dev binary clamps this at 64. CasePilot does not add a second cap.
+      CONNECTOR_DEV_AGENT_CAP: "64"
+      # This container has no Firecracker guest. Tool admission stays in the
+      # Connector process. This is not the linux-kvm production profile.
+      CONNECTOR_ALLOW_IN_PROCESS_EFFECTS: "1"
+    ports:
+      - "9091:9091"
+    volumes:
+      - connector-data:/var/lib/connector
+    restart: unless-stopped
+
+  casepilot:
+    build: .
+    environment:
+      CASEPILOT_BIND: 0.0.0.0:8088
+      CASEPILOT_DB: /data/casepilot.db
+      CONNECTOR_API_URL: http://connector:9091
+      CONNECTOR_API_KEY: dev-token
+      SURREAL_URL: http://surreal:8000
+      SURREAL_USER: root
+      SURREAL_PASS: root
+      CASEPILOT_MODEL: gpt-4o-mini
+    ports:
+      - "127.0.0.1:18088:8088"
+    volumes:
+      - casepilot:/data
+    depends_on:
+      surreal:
+        condition: service_started
+      connector:
+        condition: service_healthy
+
+volumes:
+  surreal:
+  connector-data:
+  casepilot:

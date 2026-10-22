@@ -1,0 +1,5 @@
+# Released Connector OS tarball. Fill url and sha256 from the release.
+# CasePilot does not clone the Connector source tree and does not build it.
+version=
+url=
+sha256=

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CasePilot</title>
+  <link rel="stylesheet" href="/styles.css?v=16">
+</head>
+<body class="theme-company">
+  <main class="intro" id="app">
+    <p class="eyebrow">CasePilot</p>
+    <h1>A complaint desk with a model in the room, and a person on the decision.</h1>
+    <p class="lede">A customer reports what went wrong. A worker and a Connector agent look at that customer's own history. A person confirms the organization's position. The customer then hears that position, written by the customer agent. A refund or a replacement still has to be admitted. A sentence from the model is not a completed refund.</p>
+    <ol class="steps">
+      <li><strong>See what this is</strong><span>Three rooms share one case record.</span></li>
+      <li><strong>Use your email</strong><span>Each email is a separate trial. Cases do not cross.</span></li>
+      <li><strong>Link your model</strong><span>The key is sent to Connector. This page does not keep it.</span></li>
+    </ol>
+    <section class="facts">
+      <article>
+        <h2>Report</h2>
+        <p>The customer has one chat. They name themselves, say what happened, and read the reply that was actually stored.</p>
+      </article>
+      <article>
+        <h2>Desk</h2>
+        <p>The company looks at the order, the notes, and the worker agent. A proposed remedy waits until Connector admits it.</p>
+      </article>
+      <article>
+        <h2>Review</h2>
+        <p>A person sees each customer separately, confirms the position, and the customer agent sends that position back. One customer's history does not authorize another customer.</p>
+      </article>
+    </section>
+    <section class="card" id="gate">
+      <p class="muted">Checking whether a model is linked…</p>
+    </section>
+  </main>
+  <script type="module" src="/assets/setup.js?v=8"></script>
+</body>
+</html>

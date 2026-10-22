@@ -1,0 +1,7 @@
+/target
+/data
+**/*.db
+web/dist
+node_modules
+.env
+connector-os.tar.gz

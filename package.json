@@ -1,0 +1,10 @@
+{
+  "name": "casepilot-web",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p web/tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3"
+  }
+}

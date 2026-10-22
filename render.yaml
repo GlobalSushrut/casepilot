@@ -1,0 +1,101 @@
+# Public site plus the two processes it needs.
+# Connector listens only on the private network. The model vendor key is
+# typed on the front page and sent to Connector. It is not set here.
+# In-process tool admission is on because this node has no Firecracker guest.
+# That is not the linux-kvm profile.
+
+services:
+  - type: pserv
+    name: casepilot-surreal
+    runtime: image
+    plan: starter
+    image:
+      url: docker.io/surrealdb/surrealdb:v2.2.1
+    dockerCommand: start --log info rocksdb:/data/custody.db
+    disk:
+      name: surreal
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: SURREAL_BIND
+        value: 0.0.0.0:8000
+      - key: SURREAL_USER
+        value: root
+      - key: SURREAL_PASS
+        generateValue: true
+
+  - type: pserv
+    name: casepilot-connector
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./deploy/connector.Dockerfile
+    dockerContext: .
+    disk:
+      name: connector
+      mountPath: /var/lib/connector
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "9091"
+      - key: CONNECTOR_HOST
+        value: 0.0.0.0
+      - key: CONNECTOR_PORT
+        value: "9091"
+      - key: CONNECTOR_DATA_DIR
+        value: /var/lib/connector
+      - key: CONNECTOR_ALLOW_OPEN_AUTH_NONLOCAL
+        value: "1"
+      - key: CONNECTOR_ENV
+        value: development
+      - key: CONNECTOR_DEV_MODE
+        value: "1"
+      - key: CONNECTOR_DEV_AGENT_CAP
+        value: "64"
+      - key: CONNECTOR_ALLOW_IN_PROCESS_EFFECTS
+        value: "1"
+      # Same lab key the local preset accepts. CasePilot sends it.
+      # It is not the model vendor key.
+      - key: CONNECTOR_API_KEY
+        value: dev-token
+
+  - type: web
+    name: casepilot
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    disk:
+      name: casepilot
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "8088"
+      - key: CASEPILOT_BIND
+        value: 0.0.0.0:8088
+      - key: CASEPILOT_DB
+        value: /data/casepilot.db
+      - key: CASEPILOT_SETUP
+        value: /data/setup.json
+      - key: CONNECTOR_API_KEY
+        value: dev-token
+      - key: CONNECTOR_HOSTPORT
+        fromService:
+          name: casepilot-connector
+          type: pserv
+          property: hostport
+      - key: SURREAL_HOSTPORT
+        fromService:
+          name: casepilot-surreal
+          type: pserv
+          property: hostport
+      - key: SURREAL_USER
+        value: root
+      - key: SURREAL_PASS
+        fromService:
+          name: casepilot-surreal
+          type: pserv
+          envVarKey: SURREAL_PASS
