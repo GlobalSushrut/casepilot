@@ -281,16 +281,13 @@ pub async fn answer_before_type(
     }
     app.db.add_message(&case_id, customer_id, "customer_agent", &text)?;
     let _ = app.db.set_status(&case_id, "recorded");
-    let coordination = match crate::engines::coordination::bind(app, &case_id, 1).await {
-        Ok(binding) => json!({ "ok": true, "binding": binding }),
-        Err(err) => json!({ "ok": false, "error": err.message }),
-    };
+    let suggestion = crate::engines::triage::suggest(app, &case_id).await.ok();
     Ok(json!({
         "text": text,
         "agent_pid": pid,
         "case": { "case_id": case_id },
-        "coordination": coordination,
-        "honesty": "The report is stored. No case type was invented.",
+        "suggestion": suggestion,
+        "honesty": "The report is stored. No case type was invented. The worker draft waits for a person to confirm before the customer sees it.",
     }))
 }
 

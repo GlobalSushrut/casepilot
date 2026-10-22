@@ -1243,12 +1243,16 @@ impl Db {
         let conn = self.lock()?;
         let mut stmt = conn
             .prepare(
-                "SELECT notification_id, case_id, message, status, created_at
-                 FROM desk_notifications WHERE audience = ?1 ORDER BY created_at DESC LIMIT 20",
+                "SELECT n.notification_id, n.case_id, n.message, n.status, n.created_at
+                 FROM desk_notifications n
+                 JOIN cases c ON c.case_id = n.case_id
+                 WHERE n.audience = ?1 AND c.account_email = ?2
+                 ORDER BY n.created_at DESC LIMIT 20",
             )
             .map_err(|err| AppError::bad(err.to_string()))?;
+        let account = crate::accounts::current().unwrap_or_default();
         let rows = stmt
-            .query_map(params![audience], |row| {
+            .query_map(params![audience, account], |row| {
                 Ok(json!({
                     "notification_id": row.get::<_, String>(0)?,
                     "case_id": row.get::<_, String>(1)?,

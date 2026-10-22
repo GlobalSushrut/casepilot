@@ -278,6 +278,10 @@ function hint(text: string): string {
   return `<p class="chat-hint">${escapeHtml(text)}</p>`;
 }
 
+window.setInterval(() => {
+  if (signedIn && activeCase) void showCase(activeCase);
+}, 4000);
+
 function stick() {
   if (!thread) return;
   thread.scrollTop = thread.scrollHeight;

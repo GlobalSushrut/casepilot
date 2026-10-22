@@ -158,6 +158,76 @@ pub async fn add_info(app: &App, case_id: &str, detail: &str) -> AppResult<Value
     }))
 }
 
+/// The worker drafts a reply the operator can confirm. If the worker cannot,
+/// the desk gets a notification asking what the customer should be told.
+/// The customer does not see this draft.
+pub async fn suggest(app: &App, case_id: &str) -> AppResult<Value> {
+    let case = app.db.get_case(case_id)?;
+    if let Err(err) = coordination::bind(app, case_id, case.generation).await {
+        app.db.notify(
+            case_id,
+            "operator",
+            &format!(
+                "Report {case_id} is stored. A worker agent is not registered yet ({}). What should the customer be told?",
+                err.message
+            ),
+        )?;
+        app.db.set_status(case_id, "awaiting_human")?;
+        return Ok(json!({ "suggested": false, "reason": err.message }));
+    }
+    let case = app.db.get_case(case_id)?;
+    let worker = coordination::require_bound(app, case_id, case.generation, "worker")?;
+    let reply = talk::consult(
+        app,
+        &worker.pid,
+        &worker.session_id,
+        "worker",
+        &format!(
+            "Facts the customer already gave: {}. Write the reply the company could send. Apologize briefly, say the team is looking, and repeat those facts. Do not promise money, a replacement, or a finding. If you cannot tell what the company should say, reply with one line that starts with ASK: and the question for the operator.",
+            case.summary
+        ),
+    )
+    .await;
+    let text = match reply {
+        Ok(reply) => reply["text"].as_str().unwrap_or("").trim().to_string(),
+        Err(err) => {
+            app.db.notify(
+                case_id,
+                "operator",
+                &format!(
+                    "Report {case_id} needs a reply. The worker agent did not write one ({}). What should the customer be told?",
+                    err.message
+                ),
+            )?;
+            app.db.set_status(case_id, "awaiting_human")?;
+            return Ok(json!({ "suggested": false, "reason": err.message }));
+        }
+    };
+    if text.is_empty() || text.to_ascii_lowercase().starts_with("ask:") {
+        let question = text
+            .split_once(':')
+            .map(|(_, rest)| rest.trim())
+            .filter(|rest| !rest.is_empty())
+            .unwrap_or("What should the customer be told?");
+        app.db.notify(
+            case_id,
+            "operator",
+            &format!("Report {case_id}: the worker needs a decision. {question}"),
+        )?;
+        app.db.set_status(case_id, "awaiting_human")?;
+        return Ok(json!({ "suggested": false, "question": question }));
+    }
+    app.db.add_message(case_id, &case.customer_id, "worker_draft", &text)?;
+    app.db.add_evidence(case_id, "worker_draft", "worker", &text)?;
+    app.db.notify(
+        case_id,
+        "operator",
+        &format!("Suggested reply is ready for {case_id}. Confirm it to send that reply to the customer."),
+    )?;
+    app.db.set_status(case_id, "awaiting_human")?;
+    Ok(json!({ "suggested": true, "draft": text }))
+}
+
 pub async fn chat(app: &App, case_id: &str, message: &str) -> AppResult<Value> {
     let message = message.trim();
     if message.is_empty() {
@@ -171,7 +241,7 @@ pub async fn chat(app: &App, case_id: &str, message: &str) -> AppResult<Value> {
         &worker.pid,
         &worker.session_id,
         "worker",
-        &format!("{internal}\n\n{history}\n\nCase topic: {}. The person at the desk asks: {message}. Stay on this complaint. Write a note for that person. Do not write the sentence the customer will read. History does not authorize a refund or an action on another case.", case.summary),
+        &format!("{internal}\n\n{history}\n\nCase topic: {}. The person at the desk asks: {message}. Stay on this complaint. Answer that person. Then add a final line starting with SUGGESTED: and the reply the company could confirm, or SUGGESTED: ASK: and the question you need answered. History does not authorize a refund or an action on another case.", case.summary),
     )
     .await?;
     let text = reply["text"].as_str().unwrap_or("").trim().to_string();
@@ -184,6 +254,18 @@ pub async fn chat(app: &App, case_id: &str, message: &str) -> AppResult<Value> {
         .await?;
     app.db.add_message(case_id, &case.customer_id, "worker_note", &text)?;
     app.db.add_evidence(case_id, "connector_research", "worker", &stored)?;
+    if let Some((_, suggested)) = text.rsplit_once("SUGGESTED:") {
+        let suggested = suggested.trim();
+        if !suggested.is_empty() && !suggested.to_ascii_lowercase().starts_with("ask") {
+            app.db.add_message(case_id, &case.customer_id, "worker_draft", suggested)?;
+        } else if !suggested.is_empty() {
+            app.db.notify(
+                case_id,
+                "operator",
+                &format!("Report {case_id}: the worker needs a decision. {suggested}"),
+            )?;
+        }
+    }
     Ok(json!({
         "case_id": case_id,
         "reply": text,
@@ -285,6 +367,11 @@ pub async fn release(app: &App, case_id: &str, principal: &str, text: &str) -> A
         let handoff = existing.get("worker_handoff").and_then(|value| value.as_str()).map(str::to_string);
         (id, handoff)
     };
+    if coordination::require_bound(app, case_id, case.generation, "customer").is_err()
+        || coordination::require_bound(app, case_id, case.generation, "worker").is_err()
+    {
+        coordination::bind(app, case_id, case.generation).await?;
+    }
     let customer = coordination::require_bound(app, case_id, case.generation, "customer")?;
     let worker = coordination::require_bound(app, case_id, case.generation, "worker")?;
     let (internal, history) = context_blocks(app, case_id)?;

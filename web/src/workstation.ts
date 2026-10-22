@@ -20,7 +20,7 @@ root.innerHTML = `
     <nav class="links"><a href="/">Open</a><a href="/portal">Report</a><a href="/supervisor">Review</a></nav>
     <div class="actions">
       <button type="button" id="cease" class="ghost">Cease</button>
-      <button type="button" id="confirm" class="ghost">Confirm</button>
+      <button type="button" id="confirm">Confirm reply</button>
       <button type="button" id="approve">Release</button>
     </div>
   </header>
@@ -124,9 +124,19 @@ root.querySelector("#cease")?.addEventListener("click", async () => {
 
 root.querySelector("#confirm")?.addEventListener("click", async () => {
   if (!selected) return;
-  const body = await postJson(`/api/casepilot/cases/${selected}/confirm`, {});
-  await openCase(selected);
-  file!.textContent = JSON.stringify(body, null, 2);
+  const note = root.querySelector<HTMLTextAreaElement>("#note")?.value.trim() || "";
+  if (!note) {
+    file!.textContent = "The worker has not suggested a reply yet. Talk with the agent, or write the reply, then confirm. That sends it to this report.";
+    return;
+  }
+  try {
+    const body = await postJson(`/api/casepilot/cases/${selected}/release`, { text: note });
+    await openCase(selected);
+    await loadNotes();
+    file!.textContent = JSON.stringify(body, null, 2);
+  } catch (error) {
+    file!.textContent = error instanceof Error ? error.message : "The reply was not sent to the report.";
+  }
 });
 
 root.querySelector("#approve")?.addEventListener("click", async () => {
