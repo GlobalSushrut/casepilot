@@ -138,7 +138,7 @@ function wireEmail(): void {
     if (note) note.textContent = "Opening this trial…";
     try {
       await postJson("/api/casepilot/setup/account", { email });
-      await paint();
+      await paint(true);
     } catch (error) {
       if (note) note.textContent = error instanceof Error ? error.message : "That email was refused.";
     }
@@ -163,7 +163,7 @@ function wire(providers: Provider[]): void {
         api_key: String(data.get("api_key") || ""),
         endpoint: endpoint || null,
       });
-      await paint();
+      await paint(true);
       return;
     } catch (error) {
       if (note) note.textContent = error instanceof Error ? error.message : "The model link was refused.";
@@ -173,13 +173,16 @@ function wire(providers: Provider[]): void {
 
 let wait: number | undefined;
 
-async function paint(): Promise<void> {
+async function paint(force = false): Promise<void> {
   if (wait !== undefined) {
     window.clearTimeout(wait);
     wait = undefined;
   }
   const status = await getJson<Status>("/api/casepilot/setup/status");
-  if (root.contains(document.activeElement) && (root.querySelector("#link") || root.querySelector("#email"))) {
+  const editing =
+    root.contains(document.activeElement) &&
+    (root.querySelector("#link") || root.querySelector("#email"));
+  if (!force && editing) {
     if (!status.authenticated) wait = window.setTimeout(() => void paint(), 4000);
     return;
   }

@@ -15,8 +15,9 @@
 }
 
 * { box-sizing: border-box; }
+html { overflow-y: scroll; }
 html, body, #app { min-height: 100%; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--font); }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--font); overflow-x: hidden; overflow-y: visible; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -68,7 +69,7 @@ pre { white-space: pre-wrap; background: #f4f7fa; padding: 12px; border-radius: 
 .layout, .desk { display: grid; gap: 14px; padding: 18px 24px 40px; }
 .desk { grid-template-columns: 280px 320px minmax(0, 1fr); align-items: start; }
 .desk .chat-card { grid-column: 3; grid-row: 1 / span 3; min-height: 640px; display: flex; flex-direction: column; }
-.thread { overflow: auto; max-height: 520px; display: flex; flex-direction: column; gap: 10px; }
+.thread { overflow: visible; max-height: none; display: flex; flex-direction: column; gap: 10px; }
 .thread p { white-space: pre-wrap; }
 .chat-card .thread { flex: 1; }
 .labels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
@@ -79,11 +80,11 @@ pre { white-space: pre-wrap; background: #f4f7fa; padding: 12px; border-radius: 
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   gap: 14px;
-  height: calc(100vh - 62px);
-  padding: 14px 16px 16px;
-  min-height: 0;
+  min-height: calc(100vh - 62px);
+  height: auto;
+  padding: 14px 16px 32px;
 }
-.report-side { min-height: 0; overflow: auto; }
+.report-side { min-height: 0; overflow: visible; }
 .report-list { display: flex; flex-direction: column; gap: 8px; }
 .report-list button {
   display: flex;
@@ -103,7 +104,7 @@ pre { white-space: pre-wrap; background: #f4f7fa; padding: 12px; border-radius: 
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
 }
 .report-chat .chat-head { padding: 16px 16px 8px; }
@@ -155,7 +156,7 @@ pre { white-space: pre-wrap; background: #f4f7fa; padding: 12px; border-radius: 
 .theme-super .muted, .theme-super .eyebrow { color: #93a3b5; }
 .theme-super button.ghost, .theme-super input, .theme-super select, .theme-super textarea, .theme-super pre { background: #12181f; color: #e7eef6; border-color: #314255; }
 .theme-super .labels span, .theme-super .tabs button, .theme-super .kind { background: #243140; color: #e7eef6; }
-.theme-super, .theme-super #app { height: 100vh; overflow: hidden; }
+.theme-super, .theme-super #app { min-height: 100vh; height: auto; overflow: visible; }
 .theme-super #app { display: flex; flex-direction: column; }
 .theme-super .top { height: 52px; padding: 0 16px; }
 .theme-super .review {
@@ -174,7 +175,7 @@ pre { white-space: pre-wrap; background: #f4f7fa; padding: 12px; border-radius: 
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   background: #121a22;
   border-right: 1px solid #243140;
   border-radius: 0;
@@ -191,7 +192,7 @@ pre { white-space: pre-wrap; background: #f4f7fa; padding: 12px; border-radius: 
 .theme-super .segment { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 8px; border: 1px solid #314255; border-radius: 6px; overflow: hidden; }
 .theme-super .segment button { border-radius: 0; background: transparent; color: #93a3b5; padding: 6px 0; font-size: 12px; font-weight: 650; }
 .theme-super .segment button.active { background: #1b3344; color: #e7eef6; }
-.theme-super .queue-list, .theme-super .review-record { overflow: auto; flex: 1; }
+.theme-super .queue-list, .theme-super .review-record { overflow: visible; flex: 1; }
 .theme-super .queue-list button {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
@@ -264,7 +265,7 @@ pre { white-space: pre-wrap; background: #f4f7fa; padding: 12px; border-radius: 
 .theme-super .decision .actions { margin-top: 8px; }
 .theme-super .decision #phase { font-size: 12px; }
 .theme-super #release { background: #1f6f62; }
-.theme-super .tools { border-top: 1px solid #243140; background: #121a22; padding: 0 12px 12px; max-height: 34%; overflow: auto; }
+.theme-super .tools { border-top: 1px solid #243140; background: #121a22; padding: 0 12px 12px; max-height: none; overflow: visible; }
 .theme-super .tools summary { padding: 8px 0; }
 .theme-super .empty { color: #93a3b5; padding: 18px 4px; }
 .theme-super .review button:focus-visible, .theme-super .review input:focus-visible, .theme-super .review textarea:focus-visible { outline: 2px solid #3d9d86; outline-offset: 1px; }
