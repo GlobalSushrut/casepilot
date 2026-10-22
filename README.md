@@ -88,9 +88,9 @@ Open `http://127.0.0.1:8088/`. The first page explains the desk, asks for a mode
 
 ## Deploy on Render
 
-The public repository is the source Render builds. Use **Deploy to Render** at the top of this page, or open a Blueprint in the Render dashboard and point it at this repository. `render.yaml` defines three services: Surreal and Connector on the private network, and CasePilot as the public site. Both services carry the Connector API key `dev-token`. The local preset accepts that key, so CasePilot connects in the backend after deploy without anyone pasting it. Render generates the Surreal password. The model vendor key is not in the file. A person enters an email and their own model on the front page. Each email is a separate trial.
+The public repository is the source Render builds. `render.yaml` is one free web service. That container runs CasePilot, Connector, and Surreal together. The Connector API key in the container is `dev-token`. The local preset accepts that key, so CasePilot connects in the backend after deploy without anyone pasting it. The model vendor key is not in the file. A person enters an email and their own model on the front page. Each email is a separate trial.
 
-Disks are included so the case database, Connector state, and the custody store survive a restart. Render disks need a paid instance, so each service is on the starter plan. This Connector process admits tools inside the container. It is not the linux-kvm profile.
+The free plan has no disk. A trial lasts while the instance is awake. Sleep or a restart clears the cases and the linked model. This Connector process admits tools inside the container. It is not the linux-kvm profile.
 
 When the public URL answers `GET /healthz`, open `/`. Enter an email, link a model, then try Report.
 

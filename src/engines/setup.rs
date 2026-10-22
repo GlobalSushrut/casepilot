@@ -96,13 +96,13 @@ pub async fn prepare(app: &App) {
         app.set_connector(&saved.connector_url, &saved.connector_api_key);
     }
     let mut authed = false;
-    for attempt in 1..=45 {
+    for attempt in 1..=90 {
         if probe_connector(app).await.authenticated {
             authed = true;
             saved.prepare_note.clear();
             break;
         }
-        if attempt == 45 || env_api_key().is_none() {
+        if attempt == 90 || env_api_key().is_none() {
             break;
         }
         if attempt == 1 || attempt % 5 == 0 {

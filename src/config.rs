@@ -20,11 +20,13 @@ fn nonempty(key: &str) -> Option<String> {
 }
 
 fn bind_addr() -> String {
-    if let Some(bind) = nonempty("CASEPILOT_BIND") {
-        return bind;
-    }
+    // Render sets PORT to the port its proxy forwards to. That has to win
+    // over a bind address baked into the image.
     if let Some(port) = nonempty("PORT") {
         return format!("0.0.0.0:{port}");
+    }
+    if let Some(bind) = nonempty("CASEPILOT_BIND") {
+        return bind;
     }
     "127.0.0.1:8088".into()
 }
